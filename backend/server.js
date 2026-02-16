@@ -2,6 +2,7 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const cors = require('cors');
+const { userDb } = require('./db');
 require('dotenv').config();
 
 const app = express();
@@ -11,16 +12,6 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-producti
 // Middleware
 app.use(cors());
 app.use(express.json());
-
-// In-memory user storage (replace with database in production)
-const users = [
-  {
-    id: 1,
-    username: 'demo',
-    // Password: 'password123'
-    password: '$2a$10$8ZKJ3pYQUqK5Xj3z5l5UUuKZGX5VQXh8YnQ8YnQ8YnQ8YnQ8YnQ8Y'
-  }
-];
 
 // Helper function to generate JWT token
 const generateToken = (user) => {
@@ -65,26 +56,20 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(400).json({ message: 'Username and password are required' });
     }
 
-    // For demo purposes, accept any username/password combo
-    // In production, validate against database
     if (username.length < 3 || password.length < 6) {
       return res.status(400).json({ 
         message: 'Username must be at least 3 characters and password at least 6 characters' 
       });
     }
 
-    // Create or find user
-    let user = users.find(u => u.username === username);
+    // Find user in database
+    let user = userDb.findByUsername(username);
     
     if (!user) {
-      // Auto-create user for demo (remove in production)
+      // Auto-create user for demo (convenient for development)
       const hashedPassword = await bcrypt.hash(password, 10);
-      user = {
-        id: users.length + 1,
-        username,
-        password: hashedPassword
-      };
-      users.push(user);
+      const userId = userDb.create(username, hashedPassword);
+      user = userDb.findById(userId);
     } else {
       // Verify password
       const isValidPassword = await bcrypt.compare(password, user.password);
@@ -100,7 +85,8 @@ app.post('/api/auth/login', async (req, res) => {
       token,
       user: {
         id: user.id,
-        username: user.username
+        username: user.username,
+        email: user.email
       }
     });
   } catch (error) {
@@ -112,7 +98,7 @@ app.post('/api/auth/login', async (req, res) => {
 // Register endpoint
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, password, email } = req.body;
 
     if (!username || !password) {
       return res.status(400).json({ message: 'Username and password are required' });
@@ -125,18 +111,18 @@ app.post('/api/auth/register', async (req, res) => {
     }
 
     // Check if user already exists
-    if (users.find(u => u.username === username)) {
+    if (userDb.findByUsername(username)) {
       return res.status(409).json({ message: 'Username already exists' });
+    }
+
+    if (email && userDb.findByEmail(email)) {
+      return res.status(409).json({ message: 'Email already exists' });
     }
 
     // Create new user
     const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = {
-      id: users.length + 1,
-      username,
-      password: hashedPassword
-    };
-    users.push(newUser);
+    const userId = userDb.create(username, hashedPassword, email);
+    const newUser = userDb.findById(userId);
 
     const token = generateToken(newUser);
 
@@ -145,7 +131,8 @@ app.post('/api/auth/register', async (req, res) => {
       token,
       user: {
         id: newUser.id,
-        username: newUser.username
+        username: newUser.username,
+        email: newUser.email
       }
     });
   } catch (error) {

@@ -24,10 +24,12 @@ services:
     volumes:
       - ./backend:/app
       - /app/node_modules
+      - backend-data:/app/data
     environment:
       - PORT=3000
       - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
       - NODE_ENV=development
+      - DB_PATH=/app/data/users.db
     restart: unless-stopped
 
   # Legacy static webapp (kept for reference)
@@ -40,3 +42,6 @@ services:
     restart: unless-stopped
     profiles:
       - legacy
+
+volumes:
+  backend-data:
