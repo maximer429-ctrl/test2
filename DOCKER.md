@@ -2,6 +2,19 @@
 
 Multi-container Docker setup for Angular frontend and Node.js backend.
 
+## ⚠️ Core Principle: Container-Only Development
+
+**ALL development and testing must happen inside containers. DO NOT install tools on the host.**
+
+- ✅ Run tests: `docker exec test2-frontend-1 npm test`
+- ✅ Install packages: Modify Dockerfile, rebuild container
+- ✅ Debug: `docker exec -it test2-frontend-1 /bin/sh`
+- ❌ Never: `npm install` on host
+- ❌ Never: Install Chrome, browsers, or dev tools on host
+- ❌ Never: Run tests directly on host
+
+This keeps your host system clean and ensures consistent behavior across all environments.
+
 ## Services
 
 ### Frontend (Angular)

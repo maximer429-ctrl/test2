@@ -51,24 +51,49 @@ Comprehensive tests have been created for the Angular application, covering auth
 
 ## Running Tests
 
-### Prerequisites
+### ⚠️ Important: Tests Must Run in Containers
 
-Tests require a browser for execution. Install Chrome or Chromium:
+**This project uses Docker for all development. Do NOT install browsers or run tests on the host.**
+
+### Run Tests in Container
 
 ```bash
-# Ubuntu/Debian
-sudo apt-get install chromium-browser
+# Run tests inside the frontend container
+docker exec test2-frontend-1 npm test
 
-# Or Chrome
-wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
-sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list'
-sudo apt-get update
-sudo apt-get install google-chrome-stable
+# Run tests once (no watch mode)
+docker exec test2-frontend-1 npm test -- --watch=false
+
+# Run with coverage
+docker exec test2-frontend-1 npm test -- --no-watch --code-coverage
+
+# For headless execution, the container would need Chrome installed
+# (Currently not set up - see prerequisites below)
 ```
 
-### Run Tests
+### Prerequisites
 
-```bash
+Tests require a browser for execution. To run tests in headless mode, the frontend Dockerfile would need to be updated to include Chrome/Chromium:
+
+```dockerfile
+# Add to frontend/Dockerfile
+RUN apk add --no-cache \
+    chromium \
+    nss \
+    freetype \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont
+
+ENV CHROME_BIN=/usr/bin/chromium-browser
+ENV CHROME_PATH=/usr/lib/chromium/
+```
+
+Then rebuild: `docker-compose up -d --build frontend`
+
+### ~~Run Tests~~
+
+~~```bash
 cd frontend
 
 # Run all tests (watch mode)
@@ -79,7 +104,9 @@ npm test -- --no-watch --code-coverage
 
 # Run in headless mode
 npm test -- --browsers=ChromeHeadless --watch=false
-```
+```~~
+
+**DO NOT run tests directly on host - use container commands above.**
 
 ### Test Framework
 
