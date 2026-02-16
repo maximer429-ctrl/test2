@@ -1,6 +1,36 @@
-version: '3.8'
-
 services:
+  # Angular Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "4200:4200"
+    volumes:
+      - ./frontend/src:/app/src
+    environment:
+      - NODE_ENV=development
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # Node.js Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    environment:
+      - PORT=3000
+      - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+      - NODE_ENV=development
+    restart: unless-stopped
+
+  # Legacy static webapp (kept for reference)
   webapp:
     build: .
     ports:
@@ -8,3 +38,5 @@ services:
     volumes:
       - ./index.html:/usr/share/nginx/html/index.html:ro
     restart: unless-stopped
+    profiles:
+      - legacy
