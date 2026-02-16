@@ -2,7 +2,8 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const cors = require('cors');
-const { userDb } = require('./db');
+const crypto = require('crypto');
+const { userDb, tokenDb } = require('./db');
 require('dotenv').config();
 
 const app = express();
@@ -155,6 +156,121 @@ app.get('/api/protected', authenticateToken, (req, res) => {
     message: 'This is protected data',
     user: req.user
   });
+});
+
+// Forgot password - request password reset
+app.post('/api/auth/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+
+    // Find user by email
+    const user = userDb.findByEmail(email);
+    
+    // Always return success to avoid leaking user existence
+    if (!user) {
+      console.log(`Password reset requested for non-existent email: ${email}`);
+      return res.json({ 
+        message: 'If an account exists with this email, a password reset link has been sent' 
+      });
+    }
+
+    // Generate secure random token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    
+    // Token expires in 1 hour
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    
+    // Save token to database
+    tokenDb.create(user.id, resetToken, expiresAt);
+
+    // In a real app, send email here
+    // For demo purposes, log the token
+    console.log('========================================');
+    console.log('PASSWORD RESET REQUEST');
+    console.log('========================================');
+    console.log(`User: ${user.username} (${email})`);
+    console.log(`Reset Token: ${resetToken}`);
+    console.log(`Expires: ${expiresAt}`);
+    console.log(`Reset URL: http://localhost:4200/reset-password?token=${resetToken}`);
+    console.log('========================================');
+
+    res.json({ 
+      message: 'If an account exists with this email, a password reset link has been sent' 
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Verify reset token
+app.get('/api/auth/verify-reset-token/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+
+    const resetToken = tokenDb.findByToken(token);
+
+    if (!resetToken) {
+      return res.status(400).json({ 
+        message: 'Invalid or expired reset token',
+        valid: false 
+      });
+    }
+
+    res.json({ 
+      message: 'Token is valid',
+      valid: true 
+    });
+  } catch (error) {
+    console.error('Verify token error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Reset password with token
+app.post('/api/auth/reset-password', async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return res.status(400).json({ message: 'Token and new password are required' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ 
+        message: 'Password must be at least 6 characters' 
+      });
+    }
+
+    // Find valid token
+    const resetToken = tokenDb.findByToken(token);
+
+    if (!resetToken) {
+      return res.status(400).json({ message: 'Invalid or expired reset token' });
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update user password
+    userDb.updatePassword(resetToken.user_id, hashedPassword);
+
+    // Mark token as used
+    tokenDb.markAsUsed(token);
+
+    console.log(`Password reset successful for user ID: ${resetToken.user_id}`);
+
+    res.json({ 
+      message: 'Password has been reset successfully. You can now login with your new password.' 
+    });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
 });
 
 // Start server
