@@ -64,19 +64,16 @@ app.post('/api/auth/login', async (req, res) => {
     }
 
     // Find user in database
-    let user = userDb.findByUsername(username);
+    const user = userDb.findByUsername(username);
     
     if (!user) {
-      // Auto-create user for demo (convenient for development)
-      const hashedPassword = await bcrypt.hash(password, 10);
-      const userId = userDb.create(username, hashedPassword);
-      user = userDb.findById(userId);
-    } else {
-      // Verify password
-      const isValidPassword = await bcrypt.compare(password, user.password);
-      if (!isValidPassword) {
-        return res.status(401).json({ message: 'Invalid credentials' });
-      }
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    // Verify password
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    if (!isValidPassword) {
+      return res.status(401).json({ message: 'Invalid credentials' });
     }
 
     const token = generateToken(user);
