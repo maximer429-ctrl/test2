@@ -75,6 +75,9 @@ describe('LoginComponent', () => {
     expect(component.loginForm.valid).toBeTruthy();
   });
 
+  // Login behavior: Users must exist before logging in (register first).
+  // Non-existent users receive 401 "Invalid credentials".
+  
   it('should call AuthService login on valid form submission', () => {
     const mockResponse = {
       message: 'Login successful',
@@ -126,6 +129,24 @@ describe('LoginComponent', () => {
 
     expect(component.errorMessage).toBe('Invalid credentials');
     expect(component.isLoading).toBe(false);
+  });
+
+  it('should set error message when user does not exist', () => {
+    const errorResponse = {
+      error: { message: 'Invalid credentials' }
+    };
+    authService.login.and.returnValue(throwError(() => errorResponse));
+
+    component.loginForm.patchValue({
+      username: 'nonexistentuser',
+      password: 'password123'
+    });
+
+    component.onSubmit();
+
+    expect(component.errorMessage).toBe('Invalid credentials');
+    expect(component.isLoading).toBe(false);
+    expect(router.navigate).not.toHaveBeenCalled();
   });
 
   it('should set loading state during login', () => {

@@ -33,6 +33,9 @@ describe('AuthService', () => {
   });
 
   describe('login', () => {
+    // Note: Login requires users to exist in the database.
+    // Non-existent users will receive 401 "Invalid credentials" (no auto-creation).
+    
     it('should login successfully and store token', () => {
       const mockResponse = {
         message: 'Login successful',
@@ -53,11 +56,25 @@ describe('AuthService', () => {
       req.flush(mockResponse);
     });
 
-    it('should handle login error', () => {
+    it('should handle login error for wrong password', () => {
       service.login('testuser', 'wrongpassword').subscribe({
         next: () => fail('should have failed'),
         error: (error) => {
           expect(error.status).toBe(401);
+          expect(service.isLoggedIn()).toBe(false);
+        }
+      });
+
+      const req = httpMock.expectOne(`${API_URL}/login`);
+      req.flush({ message: 'Invalid credentials' }, { status: 401, statusText: 'Unauthorized' });
+    });
+
+    it('should handle login error for non-existent user', () => {
+      service.login('nonexistentuser', 'password123').subscribe({
+        next: () => fail('should have failed'),
+        error: (error) => {
+          expect(error.status).toBe(401);
+          expect(error.error.message).toBe('Invalid credentials');
           expect(service.isLoggedIn()).toBe(false);
         }
       });
